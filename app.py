@@ -112,8 +112,7 @@ def login_auth():
 @app.route('/')
 @login_required
 def index():
-    return "<h1>BOT PANEL ONLINE ✅</h1>"
-
+    return render_template('index.html')
 @app.route('/api/control', methods=['POST'])
 @login_required
 def bot_control():
