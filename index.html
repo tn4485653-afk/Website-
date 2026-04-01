@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Panel | Elite Version</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-orange: #f97316;
+            --neon-blue: #00f3ff;
+            --neon-green: #4ade80;
+            --neon-red: #ff4757;
+            --glass-bg: rgba(10, 10, 12, 0.85);
+            --border-glow: rgba(249, 115, 22, 0.3);
+        }
+
+        * { cursor: crosshair; }
+
+        body { 
+            background: #030303; 
+            background-image: 
+                radial-gradient(circle at 50% 50%, #1a1a2e 0%, #030303 100%),
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 100%, 100% 4px, 3px 100%;
+            font-family: 'Rajdhani', sans-serif; 
+            color: #e2e8f0; 
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Hiệu ứng Scanline chạy dọc màn hình */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 9999;
+            pointer-events: none;
+            background-size: 100% 2px, 3px 100%;
+        }
+
+        /* Cyberpunk Card Style */
+        .cyber-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-left: 3px solid var(--neon-orange);
+            position: relative;
+            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .cyber-card:hover {
+            border-left: 3px solid var(--neon-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.1);
+        }
+
+        /* Neon Glow Text */
+        .neon-text-orange { text-shadow: 0 0 10px var(--neon-orange); color: var(--neon-orange); }
+        .neon-text-blue { text-shadow: 0 0 10px var(--neon-blue); color: var(--neon-blue); }
+
+        /* Sidebar & Navigation */
+        .sidebar { 
+            position: fixed; left: -100%; top: 0; width: 280px; height: 100%; 
+            background: rgba(5, 5, 5, 0.95); 
+            z-index: 1001; transition: 0.5s; 
+            border-right: 1px solid var(--neon-orange);
+        }
+        .sidebar.active { left: 0; box-shadow: 20px 0 50px rgba(0,0,0,0.9); }
+
+        .nav-item {
+            position: relative;
+            overflow: hidden;
+            transition: 0.3s;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .nav-item::after {
+            content: ''; position: absolute; bottom: 0; left: -100%;
+            width: 100%; height: 2px; background: var(--neon-orange);
+            transition: 0.4s;
+        }
+        .nav-item:hover::after { left: 0; }
+
+        .active-tab { 
+            background: rgba(249, 115, 22, 0.1) !important; 
+            color: var(--neon-orange) !important;
+            border-right: 4px solid var(--neon-orange);
+        }
+
+        /* Buttons Elite */
+        .btn-elite {
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 700;
+            transition: 0.3s;
+            border: 1px solid transparent;
+        }
+        .btn-elite:active { transform: scale(0.95); }
+
+        .btn-start { background: rgba(74, 222, 128, 0.1); color: var(--neon-green); border-color: rgba(74, 222, 128, 0.3); }
+        .btn-start:hover { background: var(--neon-green); color: black; box-shadow: 0 0 20px var(--neon-green); }
+
+        .btn-stop { background: rgba(255, 71, 87, 0.1); color: var(--neon-red); border-color: rgba(255, 71, 87, 0.3); }
+        .btn-stop:hover { background: var(--neon-red); color: white; box-shadow: 0 0 20px var(--neon-red); }
+
+        /* Console Retro Style */
+        .console-box {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'Fira Code', monospace;
+            box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.05);
+            position: relative;
+        }
+        .console-box::before {
+            content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px; pointer-events: none;
+        }
+
+        /* Custom Input */
+        input, select {
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            transition: 0.3s !important;
+        }
+        input:focus {
+            border-color: var(--neon-orange) !important;
+            background: rgba(249, 115, 22, 0.05) !important;
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.1) !important;
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        .glitch-hover:hover { animation: glitch 0.3s linear infinite; }
+
+        /* Toast Modern */
+        #toast {
+            backdrop-filter: blur(10px);
+            background: rgba(10, 10, 10, 0.9);
+            border-bottom: 2px solid var(--neon-orange);
+            clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="px-10 py-3 fixed font-bold tracking-widest uppercase italic">HỆ THỐNG ĐÃ BẬT</div>
+    <div id="overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[1000] hidden" onclick="toggleMenu()"></div>
+
+    <div id="sidebar" class="sidebar p-8">
+        <div class="flex flex-col items-center mb-10">
+            <div class="w-20 h-20 rounded-full border-2 border-orange-500 p-1 mb-4">
+                <div class="w-full h-full bg-orange-500/20 rounded-full flex items-center justify-center text-3xl animate-pulse">🤖</div>
+            </div>
+            <h1 class="text-xl font-bold tracking-tighter">JUBAYER <span class="text-orange-500">PROJECT</span></h1>
+            <p class="text-[9px] text-gray-500 tracking-[4px] uppercase mt-1">Advanced Control Unit</p>
+        </div>
+        
+        <nav>
+            <div onclick="showPage('control')" class="nav-item p-4 cursor-pointer active-tab flex items-center gap-3" id="m-control">
+                <span>01.</span> 🎮 ĐIỀU KHIỂN
+            </div>
+            <div onclick="showPage('accounts')" class="nav-item p-4 cursor-pointer text-gray-500 flex items-center gap-3" id="m-accounts">
+                <span>02.</span> 👥 TÀI KHOẢN
+            </div>
+            <div onclick="showPage('friends')" class="nav-item p-4 cursor-pointer text-gray-500 flex items-center gap-3" id="m-friends">
+                <span>03.</span> 👤 BẠN BÈ
+            </div>
+            <div onclick="showPage('clan')" class="nav-item p-4 cursor-pointer text-gray-500 flex items-center gap-3" id="m-clan">
+                <span>04.</span> 🛡️ CLAN
+            </div>
+            <div onclick="showPage('admin')" class="nav-item p-4 cursor-pointer text-gray-500 flex items-center gap-3" id="m-admin">
+                <span>05.</span> 🛠️ QUẢN TRỊ
+            </div>
+        </nav>
+
+        <div class="absolute bottom-10 left-8 right-8">
+            <div class="p-4 border border-white/5 rounded-lg bg-white/5">
+                <p class="text-[10px] text-gray-500 uppercase">System Version</p>
+                <p class="text-xs font-bold text-orange-500">2026.ELITE.BUILD</p>
+            </div>
+        </div>
+    </div>
+
+    <header class="p-6 flex justify-between items-center sticky top-0 z-50 bg-[#030303]/80 backdrop-blur-xl border-b border-white/5">
+        <div class="flex items-center gap-6">
+            <button onclick="toggleMenu()" class="w-10 h-10 flex items-center justify-center border border-orange-500/30 rounded hover:bg-orange-500 hover:text-black transition-all">☰</button>
+            <h1 id="page-title" class="text-2xl font-bold italic tracking-tighter uppercase neon-text-orange">⚡ ĐIỀU KHIỂN</h1>
+        </div>
+        <div class="hidden md:flex items-center gap-4 text-[11px] font-bold">
+            <div class="flex items-center gap-2 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20 text-green-500">
+                <span class="w-2 h-2 bg-green-500 rounded-full animate-ping"></span> ONLINE
+            </div>
+            <div class="text-gray-500">SERVER: VN-01</div>
+        </div>
+    </header>
+
+    <main class="p-6 max-w-2xl mx-auto pb-20">
+        
+        <div id="page-control" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="cyber-card p-5">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[2px]">Core Status</p>
+                    <h3 id="stext" class="text-xl font-bold uppercase text-red-500 italic mt-1">Hệ thống tắt</h3>
+                    <div class="h-1 w-full bg-red-500/20 mt-3 rounded-full overflow-hidden">
+                        <div class="h-full bg-red-500 w-1/3 shadow-[0_0_10px_red]"></div>
+                    </div>
+                </div>
+                <div class="cyber-card p-5 border-l-cyan-500">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[2px]">Uptime Data</p>
+                    <h3 id="timer-display" class="text-2xl font-bold font-mono neon-text-blue mt-1">00:00:00</h3>
+                </div>
+            </div>
+
+            <div class="cyber-card overflow-hidden">
+                <div class="p-4 bg-white/5 flex justify-between items-center border-b border-white/5">
+                    <h3 class="text-xs font-bold uppercase tracking-widest text-orange-500">Main Operations Interface</h3>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] text-gray-500">Auto-Reboot</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" value="" class="sr-only peer" checked>
+                            <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-600"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <div class="grid grid-cols-3 gap-3">
+                        <button onclick="control('start')" class="btn-elite btn-start py-4 rounded-lg text-xs">Execute ▶</button>
+                        <button onclick="control('stop')" class="btn-elite btn-stop py-4 rounded-lg text-xs">Terminate ■</button>
+                        <button onclick="control('restart')" class="btn-elite border-orange-500/50 text-orange-500 hover:bg-orange-500 hover:text-black py-4 rounded-lg text-xs">Reboot 🔄</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-3">
+                        <button onclick="msg('FORCE KILL SENT')" class="bg-red-950/30 text-red-400 border border-red-900/50 hover:bg-red-500 hover:text-white p-3 rounded-lg text-[10px] font-bold uppercase transition-all">Force Kill</button>
+                        <button onclick="document.getElementById('logs').innerHTML=''" class="bg-gray-900 text-gray-400 border border-white/10 hover:border-orange-500 p-3 rounded-lg text-[10px] font-bold uppercase transition-all">Clear Dev</button>
+                        <button onclick="msg('AUTO SCROLL ENABLED')" class="bg-gray-900 text-gray-400 border border-white/10 hover:border-cyan-500 p-3 rounded-lg text-[10px] font-bold uppercase transition-all">Scroll Lock</button>
+                    </div>
+
+                    <div id="logs" class="console-box p-4 h-64 overflow-y-auto text-[11px] leading-relaxed text-green-400 rounded-lg">
+                        <span class="text-orange-500">[SYSTEM]</span> Kernel ready...<br>
+                        <span class="text-cyan-500">[AUTH]</span> Handshake verified...<br>
+                        <span class="text-green-500">[LOG]</span> Dashboard v2.0 Elite connected.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-accounts" class="hidden animate-fadeIn">
+            <div class="cyber-card p-8 border-l-orange-500">
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold italic">ACCOUNT <span class="text-orange-500">DATABASE</span></h3>
+                    <div class="h-1 w-20 bg-orange-500 mt-2"></div>
+                </div>
+                <div class="space-y-4">
+                    <div class="relative group">
+                        <input id="name" type="text" placeholder=" " class="peer w-full p-4 pt-6 rounded-lg outline-none text-sm transition-all">
+                        <label class="absolute left-4 top-1 text-[10px] text-gray-500 uppercase font-bold peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-focus:top-1 peer-focus:text-[10px] peer-focus:text-orange-500 transition-all">Bot Nickname</label>
+                    </div>
+                    <div class="relative group">
+                        <input id="uid" type="text" placeholder=" " class="peer w-full p-4 pt-6 rounded-lg outline-none text-sm transition-all">
+                        <label class="absolute left-4 top-1 text-[10px] text-gray-500 uppercase font-bold peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-focus:top-1 peer-focus:text-[10px] peer-focus:text-orange-500 transition-all">Player UID</label>
+                    </div>
+                    <div class="relative group">
+                        <input id="pw" type="password" placeholder=" " class="peer w-full p-4 pt-6 rounded-lg outline-none text-sm transition-all">
+                        <label class="absolute left-4 top-1 text-[10px] text-gray-500 uppercase font-bold peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-focus:top-1 peer-focus:text-[10px] peer-focus:text-orange-500 transition-all">Access Password</label>
+                    </div>
+                    <button onclick="saveAcc()" class="w-full bg-orange-600 hover:bg-orange-500 text-black font-bold py-4 rounded-lg shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all uppercase tracking-widest mt-4 glitch-hover">Write to Database</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-clan" class="hidden space-y-4">
+            <div class="cyber-card p-6 border-l-green-500">
+                <h3 class="text-green-500 font-bold mb-6 uppercase tracking-widest flex items-center gap-2">
+                    <span class="w-2 h-2 bg-green-500 rounded-full"></span> Clan Network
+                </h3>
+                  <div class="space-y-4">
+                    <input id="guild-id" type="text" placeholder="Guild ID" class="w-full p-4 rounded-lg outline-none text-sm">
+                    <select id="region" class="w-full p-4 rounded-lg text-sm outline-none">
+                        <option value="vn">Vietnam (VN)</option>
+                        <option value="bd">Bangladesh (BD)</option>
+                        <option value="ind">India (IND)</option>
+                        <option value="sg">Singapore (SG)</option>
+                        <option value="th">Thailand (TH)</option>
+                    </select>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="guildApi('info')" class="bg-white/5 border border-white/10 p-3 rounded-lg hover:border-cyan-500 hover:text-cyan-500 transition-all text-xs font-bold uppercase">Get Info</button>
+                        <button onclick="guildApi('members')" class="bg-white/5 border border-white/10 p-3 rounded-lg hover:border-cyan-500 hover:text-cyan-500 transition-all text-xs font-bold uppercase">Scan Roster</button>
+                        <button onclick="guildApi('join')" class="border border-green-500/30 text-green-500 p-3 rounded-lg hover:bg-green-500 hover:text-black transition-all text-xs font-bold uppercase">Join System</button>
+                        <button onclick="guildApi('leave')" class="border border-red-500/30 text-red-500 p-3 rounded-lg hover:bg-red-500 hover:text-white transition-all text-xs font-bold uppercase">Leave System</button>
+                    </div>
+                </div>
+            </div>
+            <div id="clan-result" class="cyber-card p-6 min-h-[150px] font-mono text-[11px] text-gray-400 bg-black/40">
+                <p class="italic">Waiting for data query...</p>
+            </div>
+        </div>
+
+        <div id="page-admin" class="hidden">
+            <div class="cyber-card p-8 border-l-purple-600">
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-xl font-bold italic neon-text-orange">MASTER <span class="text-white">ADMIN</span></h3>
+                    <span class="px-2 py-1 bg-purple-600 text-white text-[10px] rounded font-bold uppercase">Root Access</span>
+                </div>
+                
+                <div id="admin-login-sec">
+                    <input id="adm-pw" type="password" placeholder="Input Admin Passkey" class="w-full p-4 rounded-lg mb-4 text-center tracking-[10px]">
+                    <button onclick="adminAction()" class="w-full border border-purple-500 text-purple-500 hover:bg-purple-600 hover:text-white font-bold py-4 rounded-lg transition-all uppercase">Verify Authority</button>
+                </div>
+
+                <div id="admin-config-sec" class="hidden space-y-6">
+                    <div class="p-6 bg-gradient-to-r from-orange-600/20 to-transparent rounded-lg border border-orange-500/20">
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase">Global Session Duration</p>
+                                <p class="text-2xl font-bold"><span id="current-global-time">0</span> <span class="text-xs text-orange-500">MINS</span></p>
+                            </div>
+                            <div class="flex gap-2">
+                                <input id="new-duration" type="number" class="w-20 p-2 rounded bg-black border border-white/10 text-xs">
+                                <button onclick="saveGlobal()" class="bg-orange-600 text-black px-4 rounded font-bold text-xs">SET</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <p class="text-[10px] text-orange-500 font-bold uppercase mb-3">Live Active Sessions</p>
+                        <div id="active-user-list" class="space-y-2 max-h-80 overflow-y-auto pr-2"></div>
+                                    <div id="active-user-list" class="space-y-2 max-h-80 overflow-y-auto pr-2"></div>
+        </div>
+    </div>
+</main>
+
+<div class="fixed bottom-0 left-0 right-0 p-2 bg-black/80 backdrop-blur-md border-t border-white/5 flex justify-around items-center md:hidden z-40">
+    <button onclick="showPage('control')" class="p-2 text-orange-500 flex flex-col items-center gap-1">
+        <span class="text-xl">🎮</span>
+        <span class="text-[9px] font-bold">CORE</span>
+    </button>
+    <button onclick="showPage('accounts')" class="p-2 text-gray-500 flex flex-col items-center gap-1">
+        <span class="text-xl">👥</span>
+        <span class="text-[9px] font-bold">ACC</span>
+    </button>
+    <button onclick="showPage('admin')" class="p-2 text-gray-500 flex flex-col items-center gap-1">
+        <span class="text-xl">🛠️</span>
+        <span class="text-[9px] font-bold">ADMIN</span>
+    </button>
+</div>
+
+<script>
+    const socket = io();
+    let countdown;
+
+    // --- NAVIGATION & UI ---
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('active');
+        document.getElementById('overlay').classList.toggle('hidden');
+    }
+
+    function showPage(p) {
+        ['control', 'accounts', 'friends', 'clan', 'admin'].forEach(pg => {
+            const page = document.getElementById('page-'+pg);
+            if(page) page.classList.add('hidden');
+            const menu = document.getElementById('m-'+pg);
+            if(menu) {
+                menu.classList.remove('active-tab');
+                menu.classList.add('text-gray-500');
+            }
+        });
+        document.getElementById('page-'+p).classList.remove('hidden');
+        const activeM = document.getElementById('m-'+p);
+        activeM.classList.add('active-tab');
+        activeM.classList.remove('text-gray-500');
+        
+        document.getElementById('page-title').innerText = '⚡ ' + p.toUpperCase();
+        if(window.innerWidth < 1024) {
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('overlay').classList.add('hidden');
+        }
+    }
+
+    function msg(t) {
+        const e = document.getElementById('toast');
+        e.innerText = t;
+        e.style.top = '20px';
+        e.style.opacity = '1';
+        setTimeout(() => {
+            e.style.top = '-100px';
+            e.style.opacity = '0';
+        }, 3000);
+    }
+
+    // --- CORE LOGIC ---
+    function saveAcc() {
+        const name = document.getElementById('name').value, 
+              uid = document.getElementById('uid').value, 
+              pw = document.getElementById('pw').value;
+        if(!name || !uid || !pw) return msg("NHẬP ĐỦ THÔNG TIN!");
+        localStorage.setItem('bot_name', name);
+        localStorage.setItem('bot_uid', uid);
+        localStorage.setItem('bot_pw', pw);
+        msg("ĐÃ LƯU CẤU HÌNH!");
+    }
+
+    async function control(act) {
+        const name = localStorage.getItem('bot_name'), 
+              uid = localStorage.getItem('bot_uid'), 
+              pw = localStorage.getItem('bot_pw');
+        if(!name) return msg("CHƯA CÓ CẤU HÌNH!");
+        try {
+            const res = await fetch('/api/control', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({action: act, name, uid, password: pw}) 
+            });
+            const d = await res.json();
+            msg(d.message.toUpperCase());
+            if(d.status === 'success') updateStat(d.running, d.rem_sec);
+        } catch(e) { msg("LỖI KẾT NỐI!"); }
+    }
+
+    function updateStat(run, rem = 0) {
+        const el = document.getElementById('stext');
+        if(run) {
+            el.innerText = "ĐANG HOẠT ĐỘNG";
+            el.className = "text-xl font-bold uppercase text-green-500 italic mt-1 neon-text-blue";
+            startTimer(Math.floor(rem));
+        } else {
+            el.innerText = "HỆ THỐNG TẮT";
+            el.className = "text-xl font-bold uppercase text-red-500 italic mt-1";
+            clearInterval(countdown);
+            document.getElementById('timer-display').innerText = "00:00:00";
+        }
+    }
+
+    function startTimer(sec) {
+        clearInterval(countdown);
+        if(sec <= 0 && sec !== -1) return;
+        function update() {
+            if(sec === -1) { document.getElementById('timer-display').innerText = "UNLIMITED"; return; }
+            if(sec <= 0) { clearInterval(countdown); updateStat(false); return; }
+            let h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+            document.getElementById('timer-display').innerText = 
+                `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            sec--;
+        }
+        update(); countdown = setInterval(update, 1000);
+    }
+
+    // --- CLAN & API ---
+    async function guildApi(type) {
+        const gid = document.getElementById('guild-id').value, 
+              reg = document.getElementById('region').value,
+              resBox = document.getElementById('clan-result');
+        if(!gid) return msg("NHẬP ID CLAN!");
+        resBox.innerHTML = "<p class='animate-pulse text-orange-500'>[QUERYING DATABASE...]</p>";
+        try {
+            const r = await fetch(`/api/proxy_guild?type=${type}&guild_id=${gid}&region=${reg}`);
+            const d = await r.json();
+            // Xử lý render data tùy theo type (info/members...)
+            resBox.innerHTML = `<pre class='text-green-500'>${JSON.stringify(d, null, 2)}</pre>`;
+        } catch(e) { resBox.innerHTML = "<p class='text-red-500'>ERR: REQUEST FAILED</p>"; }
+    }
+
+    // --- ADMIN SYSTEM ---
+    async function adminAction() {
+        const pass = document.getElementById('adm-pw').value;
+        try {
+            const res = await fetch('/api/admin', { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({action: 'login', password: pass}) 
+            });
+            const d = await res.json();
+            if(d.status === 'success') {
+                document.getElementById('admin-login-sec').classList.add('hidden');
+                document.getElementById('admin-config-sec').classList.remove('hidden');
+                renderActiveUsers(d.users);
+            } else msg("SAI MẬT KHẨU!");
+        } catch(e) { msg("LỖI XÁC THỰC"); }
+    }
+
+    function renderActiveUsers(users) {
+        const container = document.getElementById('active-user-list');
+        container.innerHTML = users.length === 0 ? '<p class="text-xs opacity-30 italic">No nodes active.</p>' : '';
+        users.forEach(u => {
+            container.innerHTML += `
+            <div class="flex justify-between items-center bg-white/5 p-3 rounded border border-white/5">
+                <span class="text-xs font-bold">${u.name}</span>
+                <button onclick="stopUserBot('${u.name}')" class="text-[10px] text-red-500 border border-red-500/30 px-2 py-1 rounded">KILL</button>
+            </div>`;
+        });
+    }
+
+    // --- SOCKET & INIT ---
+    socket.on('new_log', (m) => {
+        if (m.user === localStorage.getItem('bot_name')) {
+            const l = document.getElementById('logs');
+            const d = document.createElement('div');
+            d.className = "mb-1 border-l-2 border-orange-500/30 pl-2 animate-fadeIn";
+            d.innerHTML = `<span class="opacity-50">${new Date().toLocaleTimeString()}</span> > ${m.data}`;
+            l.appendChild(d); l.scrollTop = l.scrollHeight;
+        }
+    });
+
+    window.onload = () => {
+        document.getElementById('name').value = localStorage.getItem('bot_name') || "";
+        document.getElementById('uid').value = localStorage.getItem('bot_uid') || "";
+        document.getElementById('pw').value = localStorage.getItem('bot_pw') || "";
+        // Tự động kiểm tra trạng thái
+        const name = localStorage.getItem('bot_name');
+        if(name) fetch('/api/check_status', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({name}) 
+        }).then(r => r.json()).then(d => { if(d.running) updateStat(true, d.rem_sec); });
+    };
+</script>
+</body>
+</html>
+
+                 
